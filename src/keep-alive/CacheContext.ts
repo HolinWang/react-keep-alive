@@ -1,13 +1,4 @@
 import React from 'react';
-// 定义一个默认值，类型与传递给 Provider 的 value 类型兼容
-const defaultContextValue = {
-  cacheStates: {},
-  dispatch: () => {},
-  mount: () => {},
-  handleScroll: () => {}
-};
-
-// 创建 Context 并传入默认值
-const CacheContext:any = React.createContext(null);
-
+// 添加一个基础类型，您可以根据实际需求修改这个类型
+let CacheContext = React.createContext<any>(null);
 export default CacheContext;
