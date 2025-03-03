@@ -3,6 +3,7 @@ import { RouteConfig } from 'react-router-config';
 import Home from '../pages/Home';
 import About from '../pages/About';
 import Dashboard from '../pages/Dashboard';
+import HomeDashboard from '../pages/HomeDashboard';
 
 interface CacheRouteConfig extends RouteConfig {
   cacheKey: string;
@@ -29,6 +30,12 @@ const routes: CacheRouteConfig[] = [
     component: Dashboard,
     exact: true,
     cacheKey: 'dashboard',
+  },
+  {
+    path: '/home/dashboard:timestamp',
+    component: HomeDashboard,
+    exact: true,
+    cacheKey: 'home_dashboard',
   },
 ];
 

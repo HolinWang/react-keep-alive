@@ -19,6 +19,7 @@ const App: React.FC = () => {
             cacheKey={route.cacheKey}
             ttl={route.ttl}
             component={route.component}
+            noCache={true}
           />
         ))}
       </BrowserRouter>

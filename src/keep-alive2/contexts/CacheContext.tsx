@@ -1,21 +1,28 @@
 // src/contexts/CacheContext.tsx
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 
-interface CacheItem {
+type CacheItem = {
   key: string;
   element: React.ReactElement;
   timestamp: number;
   ttl: number;
-}
+  lastUsed: number;
+};
 
-interface CacheState {
-  [key: string]: CacheItem;
-}
+type CacheState = Record<string, CacheItem>;
 
 type CacheAction =
   | { type: 'CACHE_PAGE'; payload: CacheItem }
   | { type: 'REMOVE_PAGE'; payload: { key: string } }
-  | { type: 'CLEAN_EXPIRED' };
+  | { type: 'CLEAN_EXPIRED' }
+  | { type: 'TRIM_CACHE'; payload?: { limit: number } }
+  | { type: 'UPDATE_LAST_USED'; payload: { key: string } };
+
+const CACHE_CONFIG = {
+  maxItems: 30,
+  trimThreshold: 40,
+  keepAliveRatio: 0.7
+};
 
 const CacheContext = createContext<{
   state: CacheState;
@@ -24,21 +31,58 @@ const CacheContext = createContext<{
 
 const cacheReducer = (state: CacheState, action: CacheAction): CacheState => {
   switch (action.type) {
-    case 'CACHE_PAGE':
-      return { ...state, [action.payload.key]: action.payload };
-    case 'REMOVE_PAGE':
+    case 'CACHE_PAGE': {
+      const newState = { 
+        ...state,
+        [action.payload.key]: {
+          ...action.payload,
+          lastUsed: Date.now()
+        }
+      };
+      
+      if (Object.keys(newState).length > CACHE_CONFIG.trimThreshold) {
+        const entries = Object.entries(newState).sort((a, b) => 
+          b[1].lastUsed - a[1].lastUsed
+        );
+        return Object.fromEntries(
+          entries.slice(0, Math.floor(CACHE_CONFIG.maxItems * CACHE_CONFIG.keepAliveRatio))
+        );
+      }
+      return newState;
+    }
+
+    case 'REMOVE_PAGE': {
       const newState = { ...state };
       delete newState[action.payload.key];
       return newState;
-    case 'CLEAN_EXPIRED':
-      const cleanedState = { ...state };
+    }
+
+    case 'CLEAN_EXPIRED': {
       const now = Date.now();
-      Object.keys(cleanedState).forEach(key => {
-        if (now - cleanedState[key].timestamp > cleanedState[key].ttl) {
-          delete cleanedState[key];
-        }
-      });
-      return cleanedState;
+      return Object.fromEntries(
+        Object.entries(state).filter(([_, item]) => 
+          now - item.timestamp <= item.ttl
+        )
+      );
+    }
+
+    case 'TRIM_CACHE': {
+      const limit = action.payload?.limit || CACHE_CONFIG.maxItems;
+      return Object.fromEntries(
+        Object.entries(state)
+          .sort((a, b) => b[1].lastUsed - a[1].lastUsed)
+          .slice(0, limit)
+      );
+    }
+
+    case 'UPDATE_LAST_USED': {
+      const item = state[action.payload.key];
+      return item ? { 
+        ...state, 
+        [action.payload.key]: { ...item, lastUsed: Date.now() } 
+      } : state;
+    }
+
     default:
       return state;
   }
@@ -50,7 +94,9 @@ export const CacheProvider: React.FC = ({ children }) => {
   useEffect(() => {
     const timer = setInterval(() => {
       dispatch({ type: 'CLEAN_EXPIRED' });
-    }, 60000); // 每分钟清理一次过期缓存
+      dispatch({ type: 'TRIM_CACHE' });
+    }, 60000);
+
     return () => clearInterval(timer);
   }, []);
 
